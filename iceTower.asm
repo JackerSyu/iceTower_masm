@@ -3,7 +3,8 @@
 ;            2. 推到底 
 ;            3. 按r重新開始
 ;			 4. 新增箱子
-;            5. 新增障礙物
+;            5. 新增障礙物;
+;			 6. 完成所有方向移动
 
 
 .586
@@ -45,20 +46,20 @@ extern system:NEAR
 	playerY DD 1
 	playerChar DD 050h ; P
 
-	box1_X DD 3
-	box1_Y DD 5
+	box1_X DD 4
+	box1_Y DD 6
 	box1Char DD 04Fh ; O
 
 	box2_X DD 3
-	box2_Y DD 2
+	box2_Y DD 5
 	box2Char DD 06Fh ; o
 
-	obs1_X DD 9
-	obs1_Y DD 9
+	obs1_X DD 3
+	obs1_Y DD 2
 	obs1Char DD 023h ; #
 
-	obs2_X DD 8
-	obs2_Y DD 8
+	obs2_X DD 4
+	obs2_Y DD 2
 	obs2Char DD 024h ; $
 
 	obs3_X DD 10
@@ -311,9 +312,11 @@ Start:
 			MoveRight:
 				cmp edi, 64h ; d
 				jne CollisionCheck1
-				mov eax, playerY
+				call CheckPlayerHit_D ; check player 是否可動
 				cmp eax, 1 ; Make sure that player within the board size
 				je CollisionCheck1
+
+				mov eax, playerY	; P可以往right移動
 				sub eax, 1
 				mov playerY, eax
 
@@ -325,6 +328,7 @@ Start:
 				cmp eax, playerX
 				jne PushCheckBox2_D
 				jmp PushBox1_D
+
 			; Check push from right (box2)
 			PushCheckBox2_D:
 				mov eax, box2_Y
@@ -337,23 +341,29 @@ Start:
 
 			; push
 			PushBox1_D:
-				mov eax, box1_Y
+				mov eax, 1			;表示 box1
+				call CheckPushBoxHit_D
 				cmp eax, 1 ; Make sure that box within the board size
 				je BoxBorder_D
+
 				mov ebx, playerY ;計算推到底
 				sub ebx, 1
-				sub eax, ebx
-				mov box1_Y, eax
+				mov ecx, ebx
+				mov eax, 1			; 表示 box1
+				call Check_D
 				jmp CollisionCheck1
 
 			PushBox2_D:
-				mov eax, box2_Y
+				mov eax, 2	;表示 box1
+				call CheckPushBoxHit_D
 				cmp eax, 1 ; Make sure that box within the board size
 				je BoxBorder_D
+
 				mov ebx, playerY ;計算推到底
 				sub ebx, 1
-				sub eax, ebx
-				mov box2_Y, eax
+				mov ecx, ebx
+				mov eax, 2		; 表示 box1
+				call Check_D
 				jmp CollisionCheck1
 
 			; box border (box撞到墻壁)
@@ -1170,7 +1180,237 @@ Label2: mov eax, box2_X
 		ret
 CheckObs_A endp
 
+; checking proc for D (right)
+Check_D PROC
+	
+	mov edx ,eax
+	cmp eax, 1 ;如果不是1 則是2 則到 box2迴圈
+	jne loop2
 
+    loop1:
+        dec box1_Y
+		call WinCheck_ALL
+		call CheckBox_D ; box1 撞 box2
+		call CheckObs_D ; box1 撞 obs1
+        loop loop1
+		ret
+	loop2:
+	    dec box2_Y
+		call WinCheck_ALL
+		call CheckBox_D ; box2 撞 box1
+		call CheckObs_D ; box2 撞 obs1
+        loop loop2
+		ret
+
+Check_D endp
+
+CheckPlayerHit_D proc ; 判player 本身是否可前進(（障礙：1. border 2. obstacles 3.box）)
+
+	; determine border 
+	mov eax, playerY
+	cmp eax, 1 ; Make sure that player within the board size
+	je CanNotMove
+
+	; determine obstacles 
+	mov eax, playerX ; check player 撞 obs1
+	cmp eax, obs1_X  ;
+	jne obs2_label   ;
+	mov eax, playerY ;
+	mov ebx, obs1_Y ;
+	add ebx, 1       ; 
+	cmp eax, ebx	 ; 判上方有障礙物
+	je CanNotMove	
+	jmp obs2_label
+
+	obs2_label:
+		mov eax, playerX
+		cmp eax, obs2_X  ;
+		jne CanMove
+		mov eax, playerY ;
+		mov ebx, obs2_Y  ;
+		add ebx, 1       ; 
+		cmp eax, ebx	 ; 判上方有障礙物
+		je CanNotMove	
+		jmp CanMove
+
+	CanMove:		; Can move
+		mov eax, 2
+		ret
+
+	CanNotMove: 
+		mov eax, 1 ; 代表調到moveDown (can't move)
+		ret
+
+CheckPlayerHit_D endp
+
+CheckPushBoxHit_D proc ;判 帶著box的player是否可以移動（障礙：1. border 2. obstacles 3. box）
+
+	cmp eax, 1; 表示 box1
+	jne Box2_lab
+
+	Box1_lab:
+		; 判border
+		mov eax, box1_Y
+		cmp eax, 1 ; Make sure that box within the board size
+		je CanNotMove	; 撞到
+	
+		; determine obstacles
+		mov eax, box1_X
+		cmp eax, obs1_X
+		jne Obs2_lab1				;不在同Y軸
+		mov eax, box1_Y
+		mov ebx, obs1_Y
+		add ebx, 1
+		cmp eax, ebx			; 判box前面有obs
+		je CanNotMove
+		jmp Obs2_lab1
+
+		Obs2_lab1:
+		mov eax, box1_X
+		cmp eax, obs2_X
+		jne Lab1				;不在同Y軸
+		mov eax, box1_Y
+		mov ebx, obs2_Y
+		add ebx, 1
+		cmp eax, ebx			; 判box前面有obs
+		je CanNotMove
+		jmp Lab1
+
+		; determine box
+		Lab1:
+		mov eax, box1_X
+		cmp eax, box2_X
+		jne CanMove				;不在同Y軸
+		mov eax, box1_Y
+		mov ebx, box2_Y
+		add ebx, 1
+		cmp eax, ebx			; 判box前面有box
+		je CanNotMove
+		jmp CanMove
+
+	Box2_lab:
+		; 判border
+		mov eax, box2_Y
+		cmp eax, 1 ; Make sure that box within the board size
+		je CanNotMove	; 撞到
+	
+		; determine obstacles1
+		mov eax, box2_X
+		cmp eax, obs1_X
+		jne Obs2_lab2		;不在同Y軸
+		mov eax, box2_Y
+		mov ebx, obs1_Y
+		add ebx, 1
+		cmp eax, ebx			; 判box前面有obs
+		je CanNotMove
+		jmp Obs2_lab2
+
+
+		; determine obstacles2
+		Obs2_lab2:
+		mov eax, box2_X
+		cmp eax, obs2_X
+		jne Lab2			;不在同Y軸
+		mov eax, box2_Y
+		mov ebx, obs2_Y
+		add ebx, 1
+		cmp eax, ebx			; 判box前面有obs
+		je CanNotMove
+		jmp Lab2 
+
+		; determine box
+		Lab2:
+		mov eax, box2_X
+		cmp eax, box1_X
+		jne CanMove				;不在同Y軸
+		mov eax, box2_Y
+		mov ebx, box1_Y
+		add ebx, 1
+		cmp eax, ebx			; 判box前面有box
+		je CanNotMove
+		jmp CanMove
+
+	CanMove:
+		mov eax, 2
+		ret
+	CanNotMove:
+		mov eax, 1
+		ret
+
+CheckPushBoxHit_D endp
+
+
+CheckBox_D proc
+	mov eax, box1_X
+	cmp eax, box2_X ;same y
+	je SameY
+	ret
+	SameY:
+		mov eax, box1_Y
+		cmp eax, box2_Y
+		je Hit
+		ret
+	Hit:
+		cmp edx, 1 ;1 是 box1
+		jne Hit2
+		inc box1_Y
+		ret
+	Hit2:
+		inc box2_Y
+	ret
+CheckBox_D endp
+
+CheckObs_D proc  ; 每次動一步檢查obs
+
+	cmp edx, 1 ; box1
+	jne Box2_label
+
+	; check box1
+	mov eax, box1_X
+	cmp eax, obs1_X
+	je SameY_obs1
+	jmp Label1
+	SameY_obs1:
+		mov eax, box1_Y
+		cmp eax, obs1_Y
+		je Hit				; check obs 是否撞 否則繼續檢查下個obs
+Label1:	mov eax, box1_X 
+		cmp eax, obs2_X
+		je sameY_obs2
+		ret
+	sameY_obs2:
+		mov eax, box1_Y
+		cmp eax, obs2_Y
+		je Hit
+		ret		
+	Hit:
+		inc box1_Y
+		ret
+
+	; check box2
+	Box2_label:
+	mov eax, box2_X
+	cmp eax, obs1_X
+	je SameY2_obs1
+	jmp Label2
+
+	SameY2_obs1:
+		mov eax, box2_Y
+		cmp eax, obs1_Y
+		je Hit2
+Label2: mov eax, box2_X
+		cmp eax, obs2_X
+		je SameY2_obs2
+		ret
+	SameY2_obs2:
+		mov eax, box2_Y
+		cmp eax, obs2_Y
+		je Hit2
+		ret
+	Hit2:
+		inc box2_Y
+		ret
+CheckObs_D endp
 
 
 
