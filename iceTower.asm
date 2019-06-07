@@ -1,10 +1,11 @@
 ; 冰塔遊戲
-; 新增功能： 1. 主角、箱子有邊界限制 
+; 新增功能：  1. 主角、箱子有邊界限制 
 ;            2. 推到底 
 ;            3. 按r重新開始
 ;			 4. 新增箱子
 ;            5. 新增障礙物;
 ;			 6. 完成所有方向移动
+;			 7. 新增 level 2
 
 
 .586
@@ -46,19 +47,19 @@ extern system:NEAR
 	playerY DD 1
 	playerChar DD 050h ; P
 
-	box1_X DD 4
-	box1_Y DD 6
+	box1_X DD 3
+	box1_Y DD 7
 	box1Char DD 04Fh ; O
 
 	box2_X DD 3
 	box2_Y DD 5
 	box2Char DD 06Fh ; o
 
-	obs1_X DD 3
-	obs1_Y DD 2
+	obs1_X DD 9
+	obs1_Y DD 8
 	obs1Char DD 023h ; #
 
-	obs2_X DD 4
+	obs2_X DD 3
 	obs2_Y DD 2
 	obs2Char DD 024h ; $
 
@@ -74,9 +75,11 @@ extern system:NEAR
 	obs5_Y DD 10
 	obs5Char DD 023h ; #
 
-	goalX DD 9
-	goalY DD 4
+	goalX DD 7
+	goalY DD 3
 	goalChar DD 47h ; G
+
+	level DD 1
 
 	; Game messages
 	startMsg DB "Welcome to the game. Use W, S, A, D to move around. Try to reach G. Avoid X. Press any key to start.", 0Ah, 0
@@ -113,7 +116,7 @@ Start:
  			je Quit
 
 			cmp edi, 72h ; 'r' restart
-			je Restart
+			je NextLevel
 
 			; Check for move UP -------------------------------------------------------------
 			MoveUp:
@@ -426,15 +429,23 @@ Start:
 		pop ebp
 
 		ret
-	Restart:
+	NextLevel:
 		popa
 		; initial position
 		mov playerX ,1
 		mov playerY ,1
 		mov	box1_X , 4
 		mov box1_Y , 5
-		mov box2_X, 10
+		mov box2_X, 5
 		mov box2_Y, 5
+		mov obs1_X, 3
+		mov obs1_Y, 5
+		mov obs2_X, 1
+		mov obs2_Y, 9
+		mov goalX, 2
+		mov goalY, 8
+		mov level, 3
+
 		jmp Start
 
 	WinState:
@@ -452,7 +463,8 @@ Start:
 
    		ret
 		@
-		call Win 
+		;call Win
+		jmp NextLevel
 		ret
 	GameOver:
 		; This state is reach when
@@ -480,6 +492,8 @@ Check_W PROC
     loop1:
         inc box1_X
 		call WinCheck_ALL
+		cmp level, 2
+		je NextLevel
 		call CheckBox_W ; box1 撞 box2
 		call CheckObs_W ; box1 撞 obs1
         loop loop1
@@ -487,11 +501,15 @@ Check_W PROC
 	loop2:
 	    inc box2_X
 		call WinCheck_ALL
+		cmp level, 2
+		je NextLevel
 		call CheckBox_W ; box2 撞 box1
 		call CheckObs_W ; box2 撞 obs1
         loop loop2
 		ret
 
+	NextLevel:
+		ret
 Check_W endp
 
 CheckPlayerHit_W proc ; 判player 本身是否可前進(（障礙：1. border 2. obstacles 3.box）)
@@ -669,7 +687,7 @@ CheckObs_W proc  ; 每次動一步檢查obs
 	mov eax, box1_Y
 	cmp eax, obs1_Y
 	je SameY_obs1
-	jmp Label1
+	jmp Label1				; not the same then check obs2
 	SameY_obs1:
 		mov eax, box1_X
 		cmp eax, obs1_X
@@ -724,6 +742,8 @@ Check_S PROC
     loop1:
         dec box1_X
 		call WinCheck_ALL
+		cmp level, 2
+		je NextLevel
 		call CheckBox_S ; box1 撞 box2
 		call CheckObs_S ; box1 撞 obs1
         loop loop1
@@ -731,10 +751,14 @@ Check_S PROC
 	loop2:
 	    dec box2_X
 		call WinCheck_ALL
+		cmp level, 2
+		je NextLevel
 		call CheckBox_S ; box2 撞 box1
 		call CheckObs_S ; box2 撞 obs1
         loop loop2
+NextLevel:		
 		ret
+
 
 Check_S endp
 
@@ -958,6 +982,8 @@ Check_A PROC
     loop1:
         inc box1_Y
 		call WinCheck_ALL
+		cmp level, 2
+		je NextLevel
 		call CheckBox_A ; box1 撞 box2
 		call CheckObs_A ; box1 撞 obs1
         loop loop1
@@ -965,9 +991,12 @@ Check_A PROC
 	loop2:
 	    inc box2_Y
 		call WinCheck_ALL
+		cmp level, 2
+		je NextLevel
 		call CheckBox_A ; box2 撞 box1
 		call CheckObs_A ; box2 撞 obs1
         loop loop2
+NextLevel:
 		ret
 
 Check_A endp
@@ -1190,6 +1219,8 @@ Check_D PROC
     loop1:
         dec box1_Y
 		call WinCheck_ALL
+		cmp level, 2
+		je NextLevel
 		call CheckBox_D ; box1 撞 box2
 		call CheckObs_D ; box1 撞 obs1
         loop loop1
@@ -1197,11 +1228,15 @@ Check_D PROC
 	loop2:
 	    dec box2_Y
 		call WinCheck_ALL
+		cmp level, 2
+		je NextLevel
 		call CheckBox_D ; box2 撞 box1
 		call CheckObs_D ; box2 撞 obs1
         loop loop2
 		ret
 
+NextLevel:
+	ret
 Check_D endp
 
 CheckPlayerHit_D proc ; 判player 本身是否可前進(（障礙：1. border 2. obstacles 3.box）)
@@ -1677,7 +1712,7 @@ WinCheck_ALL proc ; check win or not
 		cmp eax, goalY
 		jne WinCheck2
 		call Win
-
+		ret
 	WinCheck2:
 		mov eax, box2_X
 		cmp eax, goalX
@@ -1692,15 +1727,22 @@ WinCheck_ALL proc ; check win or not
 WinCheck_ALL endp 
 
 Win proc ; win state page 
+	
+	cmp level, 1
+	je NextLevel
+
 	push offset winMsg
 	call printf
 	add esp, 4
-
 	mov eax, 0
-
    	mov esp,ebp
    	pop ebp
 
    	ret
+
+NextLevel: 
+	mov level, 2
+	ret
+
 Win endp 
 END
