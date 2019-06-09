@@ -117,7 +117,7 @@ Start:
  			je Quit
 
 			cmp edi, 72h ; 'r' restart
-			je NextLevel
+			je NextLevel2
 
 			; Check for move UP -------------------------------------------------------------
 			MoveUp:
@@ -430,10 +430,10 @@ Start:
 		pop ebp
 
 		ret
-	NextLevel:
+	NextLevel2:
 		popa
 		; initial position
-		mov playerX ,1
+		mov playerX ,2
 		mov playerY ,1
 		mov	box1_X , 4
 		mov box1_Y , 5
@@ -443,11 +443,43 @@ Start:
 		mov obs1_Y, 5
 		mov obs2_X, 1
 		mov obs2_Y, 9
+		mov obs3_X, 1
+		mov obs3_Y, 1
+		mov obs4_X, 10
+		mov obs4_Y, 1
+		mov obs5_X, 10
+		mov obs5_Y, 10
 		mov goalX, 2
 		mov goalY, 8
-		mov level, 3
+		mov level, 99
 
 		jmp Start
+
+	NextLevel3:
+		popa
+		; initial position
+		mov playerX ,9
+		mov playerY ,10
+		mov	box1_X , 4
+		mov box1_Y , 5
+		mov box2_X, 5
+		mov box2_Y, 5
+		mov obs1_X, 3
+		mov obs1_Y, 5
+		mov obs2_X, 1
+		mov obs2_Y, 9
+		mov obs3_X, 1
+		mov obs3_Y, 1
+		mov obs4_X, 10
+		mov obs4_Y, 1
+		mov obs5_X, 10
+		mov obs5_Y, 10
+		mov goalX, 2
+		mov goalY, 8
+		mov level, 100
+
+		jmp Start
+
 
 	WinState:
 		; This state is reach when
@@ -465,21 +497,11 @@ Start:
    		ret
 		@
 		;call Win
-		jmp NextLevel
+		cmp level, 2
+		je NextLevel2
+		cmp level, 3
+		je NextLevel3
 		ret
-	GameOver:
-		; This state is reach when
-		; the player Hit one of the enemies
-		push offset gameOverMsg
-		call printf
-		add esp, 4
-
-		mov eax, 0
-
-   		mov esp,ebp
-   		pop ebp
-
-   		ret
 
 main ENDP
 
@@ -495,6 +517,8 @@ Check_W PROC
 		call WinCheck_ALL
 		cmp level, 2
 		je NextLevel
+		cmp level, 3
+		je NextLevel
 		call CheckBox_W ; box1 撞 box2
 		call CheckObs_W ; box1 撞 obs1
         loop loop1
@@ -503,6 +527,8 @@ Check_W PROC
 	    inc box2_X
 		call WinCheck_ALL
 		cmp level, 2
+		je NextLevel
+		cmp level, 3
 		je NextLevel
 		call CheckBox_W ; box2 撞 box1
 		call CheckObs_W ; box2 撞 obs1
@@ -897,6 +923,8 @@ Check_S PROC
 		call WinCheck_ALL
 		cmp level, 2
 		je NextLevel
+		cmp level, 3
+		je NextLevel
 		call CheckBox_S ; box1 撞 box2
 		call CheckObs_S ; box1 撞 obs1
         loop loop1
@@ -905,6 +933,8 @@ Check_S PROC
 	    dec box2_X
 		call WinCheck_ALL
 		cmp level, 2
+		je NextLevel
+		cmp level, 3
 		je NextLevel
 		call CheckBox_S ; box2 撞 box1
 		call CheckObs_S ; box2 撞 obs1
@@ -1299,6 +1329,8 @@ Check_A PROC
 		call WinCheck_ALL
 		cmp level, 2
 		je NextLevel
+		cmp level, 3
+		je NextLevel
 		call CheckBox_A ; box1 撞 box2
 		call CheckObs_A ; box1 撞 obs1
         loop loop1
@@ -1307,6 +1339,8 @@ Check_A PROC
 	    inc box2_Y
 		call WinCheck_ALL
 		cmp level, 2
+		je NextLevel
+		cmp level, 3
 		je NextLevel
 		call CheckBox_A ; box2 撞 box1
 		call CheckObs_A ; box2 撞 obs1
@@ -1698,6 +1732,8 @@ Check_D PROC
 		call WinCheck_ALL
 		cmp level, 2
 		je NextLevel
+		cmp level, 3
+		je NextLevel
 		call CheckBox_D ; box1 撞 box2
 		call CheckObs_D ; box1 撞 obs1
         loop loop1
@@ -1706,6 +1742,8 @@ Check_D PROC
 	    dec box2_Y
 		call WinCheck_ALL
 		cmp level, 2
+		je NextLevel
+		cmp level, 3
 		je NextLevel
 		call CheckBox_D ; box2 撞 box1
 		call CheckObs_D ; box2 撞 obs1
@@ -2363,7 +2401,10 @@ WinCheck_ALL endp
 Win proc ; win state page 
 	
 	cmp level, 1
-	je NextLevel
+	je NextLevel2
+
+	cmp level, 99
+	je NextLevel3
 
 	push offset winMsg
 	call printf
@@ -2374,8 +2415,12 @@ Win proc ; win state page
 
    	ret
 
-NextLevel: 
+NextLevel2: 
 	mov level, 2
+	ret
+
+NextLevel3: 
+	mov level, 3
 	ret
 
 Win endp 
